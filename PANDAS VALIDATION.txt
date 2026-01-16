@@ -1,0 +1,243 @@
+import pandas as pd
+from pandasql import sqldf
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 2000)
+
+def read_files(path):
+    df=None
+    if path.endswith('csv'):
+
+        df = pd.read_csv(path)
+    elif path.endswith('xlsx'):
+
+        df= pd.read_excel(path)
+    elif path.endswith('parquet'):
+
+        df= pd.read_parquet(path)
+    else:
+        print("enter valid file")
+        df=df
+    return df
+
+
+def count_chek(src_df,tgt_df):
+    src_count = src_df.shape[0]
+    print("source_cnt",src_count)
+    tgt_count = tgt_df.shape[0]
+    print("target_cnt", tgt_count)
+    if src_count == tgt_count:
+
+        print("Matched")
+    else:
+        print("Miss Matched")
+    return src_count,tgt_count
+
+
+def duplicate_check(tgt_df,keycolumn):
+    col=','.join([f"{col.strip()}" for col in keycolumn.split(',')])
+
+    duplicate=sqldf(f"""select {col},count(1)
+                         from tgt_df
+                         group by {col}
+                         having count(1)>1   """)
+
+    if duplicate.empty:
+        print("No duplicates")
+    else:
+        print("found duplicates")
+
+
+def null_check(tgt_df):
+    column_wise_null = tgt_df.isnull().sum()
+    print("column_wise_null:", column_wise_null)
+    table_wise_null = tgt_df.isnull().sum().sum()
+    print("table_wise_null:", table_wise_null)
+
+
+def column_mapping(src_df, tgt_df):
+    smt = sqldf("""select * from src_df EXCEPT select * from tgt_df""")
+    tms = sqldf("""select * from tgt_df EXCEPT select * from src_df""")
+    frames = [df for df in [smt, tms] if not df.empty]
+
+    if frames:
+        failed = pd.concat(frames, ignore_index=True)
+        print("Miss Matched Mapping", failed.head(5))
+    else:
+        print("No Miss Matched in Mapping values")
+
+
+
+
+
+#main programm start
+#1.read test file
+testfile_df=pd.read_excel(r"C:\Users\gouri\OneDrive\Desktop\TEST_VALIDACTION.xlsx")
+print(testfile_df)
+
+
+
+#read individual column in each row
+for index, row in testfile_df.iterrows():
+    print("source_path", row['source_path'])
+    print("target_path", row['target_path'])
+
+# read the files
+    print("read source files")
+    src_df = read_files(row['source_path'])
+    print(src_df)
+    print("read target files")
+    tgt_df = read_files(row['target_path'])
+    print(tgt_df)
+
+
+# record count check
+    count_chek(src_df = src_df , tgt_df = tgt_df )
+
+#duplicate check
+    duplicate_check(tgt_df=tgt_df, keycolumn=row['keycolumn'])
+
+# null check
+    null_check(tgt_df=tgt_df)
+
+# column mapping
+    column_mapping(src_df=src_df, tgt_df=tgt_df)
+
+
+
+
+
+
+####################################################################################
+OUTPUT
+
+
+
+
+
+C:\Users\gouri\PycharmProjects\pythonProject1\.venv\Scripts\python.exe "C:\Users\gouri\PycharmProjects\pythonProject1\PANDAS VALIDATION.py" 
+                                         source_path                                        target_path       keycolumn
+0  C:/Users/gouri/OneDrive/Desktop/company_transa...  C:/Users/gouri/OneDrive/Desktop/company_transa...  Transaction_ID
+source_path C:/Users/gouri/OneDrive/Desktop/company_transaction_data_SRC.xlsx
+target_path C:/Users/gouri/OneDrive/Desktop/company_transaction_data_TGT.xlsx
+read source files
+   Transaction_ID Company_Name  Customer_Name                 Product    Amount        Date Payment_Method     Status
+0        TXN10000     DataWorx    Michael Lee      Consulting Service  39967.84  2025-09-13            UPI    Pending
+1        TXN10001   InnovaCorp    Emily Davis  Data Analytics Service  20082.83  2025-04-11     Debit Card  Completed
+2        TXN10002  CloudMatrix     John Smith  Data Analytics Service  27698.97  2025-03-07     Debit Card  Completed
+3        TXN10003   InnovaCorp  Alice Johnson      Cloud Subscription  20081.60  2025-03-21            UPI   Refunded
+4        TXN10004    AlphaSoft    Emily Davis      Cloud Subscription  15154.05  2025-08-11     Debit Card  Completed
+5        TXN10005    AlphaSoft    Michael Lee      Consulting Service  39820.38  2025-06-21    Credit Card     Failed
+6        TXN10006     DataWorx   Sophia Patel      Consulting Service  14048.94  2025-03-20         PayPal    Pending
+7        TXN10007     TechNova   Sophia Patel              IT Support  40769.15  2025-01-25     Debit Card     Failed
+8        TXN10008     DataWorx     John Smith  Data Analytics Service  42623.43  2025-08-06     Debit Card     Failed
+9        TXN10009   InnovaCorp   Sophia Patel        Software License  15372.22  2025-07-19            UPI     Failed
+10       TXN10010  CloudMatrix   Robert Brown              IT Support  29114.16  2025-09-24  Bank Transfer    Pending
+11       TXN10011     TechNova     John Smith        Software License   1541.03  2025-07-31     Debit Card    Pending
+12       TXN10012     TechNova   Sophia Patel      Cloud Subscription   5373.48  2025-04-12  Bank Transfer     Failed
+13       TXN10013    AlphaSoft    Emily Davis      Consulting Service  45447.02  2025-06-16            UPI    Pending
+14       TXN10014   InnovaCorp  Alice Johnson      Cloud Subscription  47932.69  2025-02-19    Credit Card   Refunded
+15       TXN10015   InnovaCorp   Robert Brown        Software License  20420.60  2025-03-15    Credit Card  Completed
+16       TXN10016     DataWorx    Emily Davis        Software License  30177.18  2025-01-24  Bank Transfer     Failed
+17       TXN10017    AlphaSoft  Alice Johnson  Data Analytics Service  41709.76  2025-02-18     Debit Card  Completed
+18       TXN10018    AlphaSoft  Alice Johnson        Software License   6180.36  2025-08-14            UPI    Pending
+19       TXN10019     DataWorx  Alice Johnson              IT Support   6377.30  2025-03-29     Debit Card    Pending
+20       TXN10020     TechNova  Alice Johnson              IT Support  33883.19  2025-08-20  Bank Transfer  Completed
+21       TXN10021  CloudMatrix   Sophia Patel              IT Support   2526.98  2025-07-27     Debit Card    Pending
+22       TXN10022   InnovaCorp  Alice Johnson              IT Support  20651.09  2025-04-18            UPI    Pending
+23       TXN10023     TechNova    Michael Lee              IT Support  11409.48  2025-09-06  Bank Transfer   Refunded
+24       TXN10024   InnovaCorp     John Smith      Cloud Subscription  47197.53  2025-10-01         PayPal     Failed
+25       TXN10025     TechNova    Michael Lee      Consulting Service  32745.93  2025-02-04            UPI   Refunded
+26       TXN10026    AlphaSoft   Sophia Patel      Cloud Subscription  31059.72  2025-09-02    Credit Card  Completed
+27       TXN10027    AlphaSoft  Alice Johnson      Consulting Service  17979.20  2025-06-10         PayPal    Pending
+28       TXN10028     DataWorx     John Smith      Consulting Service  34633.52  2025-03-05    Credit Card    Pending
+29       TXN10029     DataWorx    Emily Davis      Consulting Service  34266.90  2025-02-19  Bank Transfer  Completed
+30       TXN10030  CloudMatrix   Robert Brown  Data Analytics Service  22360.31  2025-03-03         PayPal   Refunded
+31       TXN10031  CloudMatrix    Michael Lee        Software License  37094.39  2025-05-06     Debit Card  Completed
+32       TXN10032     DataWorx   Sophia Patel        Software License  12487.89  2025-03-20    Credit Card    Pending
+33       TXN10033     DataWorx   Sophia Patel      Cloud Subscription  41962.98  2025-08-31  Bank Transfer     Failed
+34       TXN10034     DataWorx   Sophia Patel              IT Support  14378.71  2024-10-28     Debit Card   Refunded
+35       TXN10035    AlphaSoft    Emily Davis        Software License   5512.89  2025-05-30  Bank Transfer     Failed
+36       TXN10036    AlphaSoft    Emily Davis      Cloud Subscription  28136.22  2024-10-30     Debit Card    Pending
+37       TXN10037  CloudMatrix  Alice Johnson  Data Analytics Service  27771.32  2025-09-30    Credit Card   Refunded
+38       TXN10038     DataWorx    Michael Lee  Data Analytics Service  44208.33  2024-12-14         PayPal     Failed
+39       TXN10039  CloudMatrix    Emily Davis  Data Analytics Service  19707.14  2024-11-17    Credit Card  Completed
+40       TXN10040    AlphaSoft  Alice Johnson      Cloud Subscription  48007.93  2025-03-26    Credit Card     Failed
+41       TXN10041    AlphaSoft   Robert Brown              IT Support  44237.84  2025-03-21            UPI  Completed
+42       TXN10042     TechNova    Michael Lee      Cloud Subscription  22291.10  2025-04-24     Debit Card     Failed
+43       TXN10043    AlphaSoft  Alice Johnson      Cloud Subscription   3207.98  2025-01-07            UPI   Refunded
+44       TXN10044     DataWorx   Robert Brown        Software License  46546.52  2025-01-21  Bank Transfer    Pending
+45       TXN10045   InnovaCorp   Robert Brown        Software License  13894.07  2024-11-28     Debit Card   Refunded
+46       TXN10046  CloudMatrix    Emily Davis      Consulting Service   3772.92  2024-10-23     Debit Card   Refunded
+47       TXN10047     TechNova    Michael Lee      Consulting Service  29883.83  2025-05-07  Bank Transfer    Pending
+48       TXN10048     TechNova   Robert Brown        Software License  24169.71  2025-02-24    Credit Card  Completed
+49       TXN10049    AlphaSoft    Michael Lee      Cloud Subscription  31506.98  2025-01-12  Bank Transfer    Pending
+read target files
+   Transaction_ID Company_Name  Customer_Name                 Product    Amount        Date Payment_Method     Status
+0        TXN10000     DataWorx    Michael Lee      Consulting Service  39967.84  2025-09-13            UPI    Pending
+1        TXN10001   InnovaCorp    Emily Davis  Data Analytics Service  20082.83  2025-04-11     Debit Card  Completed
+2        TXN10002  CloudMatrix     John Smith  Data Analytics Service  27698.97  2025-03-07     Debit Card  Completed
+3        TXN10003   InnovaCorp  Alice Johnson      Cloud Subscription  20081.60  2025-03-21            UPI   Refunded
+4        TXN10004    AlphaSoft    Emily Davis      Cloud Subscription  15154.05  2025-08-11     Debit Card  Completed
+5        TXN10005    AlphaSoft    Michael Lee      Consulting Service  39820.38  2025-06-21    Credit Card     Failed
+6        TXN10006     DataWorx   Sophia Patel      Consulting Service  14048.94  2025-03-20         PayPal    Pending
+7        TXN10007     TechNova   Sophia Patel              IT Support  40769.15  2025-01-25     Debit Card     Failed
+8        TXN10008     DataWorx     John Smith  Data Analytics Service  42623.43  2025-08-06     Debit Card     Failed
+9        TXN10009   InnovaCorp   Sophia Patel        Software License  15372.22  2025-07-19            UPI     Failed
+10       TXN10010  CloudMatrix   Robert Brown              IT Support  29114.16  2025-09-24  Bank Transfer    Pending
+11       TXN10011     TechNova     John Smith        Software License   1541.03  2025-07-31     Debit Card    Pending
+12       TXN10012     TechNova   Sophia Patel      Cloud Subscription   5373.48  2025-04-12  Bank Transfer     Failed
+13       TXN10013    AlphaSoft    Emily Davis      Consulting Service  45447.02  2025-06-16            UPI    Pending
+14       TXN10014   InnovaCorp  Alice Johnson      Cloud Subscription  47932.69  2025-02-19    Credit Card   Refunded
+15       TXN10015   InnovaCorp   Robert Brown        Software License  20420.60  2025-03-15    Credit Card  Completed
+16       TXN10016     DataWorx    Emily Davis        Software License  30177.18  2025-01-24  Bank Transfer     Failed
+17       TXN10017    AlphaSoft  Alice Johnson  Data Analytics Service  41709.76  2025-02-18     Debit Card  Completed
+18       TXN10018    AlphaSoft  Alice Johnson        Software License   6180.36  2025-08-14            UPI    Pending
+19       TXN10019     DataWorx  Alice Johnson              IT Support   6377.30  2025-03-29     Debit Card    Pending
+20       TXN10020     TechNova  Alice Johnson              IT Support  33883.19  2025-08-20  Bank Transfer  Completed
+21       TXN10021  CloudMatrix   Sophia Patel              IT Support   2526.98  2025-07-27     Debit Card    Pending
+22       TXN10022   InnovaCorp  Alice Johnson              IT Support  20651.09  2025-04-18            UPI    Pending
+23       TXN10023     TechNova    Michael Lee              IT Support  11409.48  2025-09-06  Bank Transfer   Refunded
+24       TXN10024   InnovaCorp     John Smith      Cloud Subscription  47197.53  2025-10-01         PayPal     Failed
+25       TXN10025     TechNova    Michael Lee      Consulting Service  32745.93  2025-02-04            UPI   Refunded
+26       TXN10026    AlphaSoft   Sophia Patel      Cloud Subscription  31059.72  2025-09-02    Credit Card  Completed
+27       TXN10027    AlphaSoft  Alice Johnson      Consulting Service  17979.20  2025-06-10         PayPal    Pending
+28       TXN10028     DataWorx     John Smith      Consulting Service  34633.52  2025-03-05    Credit Card    Pending
+29       TXN10029     DataWorx    Emily Davis      Consulting Service  34266.90  2025-02-19  Bank Transfer  Completed
+30       TXN10030  CloudMatrix   Robert Brown  Data Analytics Service  22360.31  2025-03-03         PayPal   Refunded
+31       TXN10031  CloudMatrix    Michael Lee        Software License  37094.39  2025-05-06     Debit Card  Completed
+32       TXN10032     DataWorx   Sophia Patel        Software License  12487.89  2025-03-20    Credit Card    Pending
+33       TXN10033     DataWorx   Sophia Patel      Cloud Subscription  41962.98  2025-08-31  Bank Transfer     Failed
+34       TXN10034     DataWorx   Sophia Patel              IT Support  14378.71  2024-10-28     Debit Card   Refunded
+35       TXN10035    AlphaSoft    Emily Davis        Software License   5512.89  2025-05-30  Bank Transfer     Failed
+36       TXN10036    AlphaSoft    Emily Davis      Cloud Subscription  28136.22  2024-10-30     Debit Card    Pending
+37       TXN10037  CloudMatrix  Alice Johnson  Data Analytics Service  27771.32  2025-09-30    Credit Card   Refunded
+38       TXN10038     DataWorx    Michael Lee  Data Analytics Service  44208.33  2024-12-14         PayPal     Failed
+39       TXN10039  CloudMatrix    Emily Davis  Data Analytics Service  19707.14  2024-11-17    Credit Card  Completed
+40       TXN10040    AlphaSoft  Alice Johnson      Cloud Subscription  48007.93  2025-03-26    Credit Card     Failed
+41       TXN10041    AlphaSoft   Robert Brown              IT Support  44237.84  2025-03-21            UPI  Completed
+42       TXN10042     TechNova    Michael Lee      Cloud Subscription  22291.10  2025-04-24     Debit Card     Failed
+43       TXN10043    AlphaSoft  Alice Johnson      Cloud Subscription   3207.98  2025-01-07            UPI   Refunded
+44       TXN10044     DataWorx   Robert Brown        Software License  46546.52  2025-01-21  Bank Transfer    Pending
+45       TXN10045   InnovaCorp   Robert Brown        Software License  13894.07  2024-11-28     Debit Card   Refunded
+source_cnt 50
+target_cnt 46
+Miss Matched
+No duplicates
+column_wise_null: Transaction_ID    0
+Company_Name      0
+Customer_Name     0
+Product           0
+Amount            0
+Date              0
+Payment_Method    0
+Status            0
+dtype: int64
+table_wise_null: 0
+Miss Matched Mapping   Transaction_ID Company_Name Customer_Name             Product    Amount        Date Payment_Method     Status
+0       TXN10046  CloudMatrix   Emily Davis  Consulting Service   3772.92  2024-10-23     Debit Card   Refunded
+1       TXN10047     TechNova   Michael Lee  Consulting Service  29883.83  2025-05-07  Bank Transfer    Pending
+2       TXN10048     TechNova  Robert Brown    Software License  24169.71  2025-02-24    Credit Card  Completed
+3       TXN10049    AlphaSoft   Michael Lee  Cloud Subscription  31506.98  2025-01-12  Bank Transfer    Pending
+
+Process finished with exit code 0
